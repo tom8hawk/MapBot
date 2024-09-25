@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&amp" type="text/javascript"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #YMaps {
+            width: 100%;
+            height: 100vh;
+        }
+        body > div {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+        @media (max-width: 768px) {
+            #YMaps {
+                height: 100vh;
+            }
+        }
+        #locateButton {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background-color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #1e98ff;
+        }
+        #locateButton:hover {
+            background-color: #f0f0f0;
+        }
+        #locateButton.active {
+            background-color: #d0d0d0;
+        }
+        #infoButton {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background-color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+            display: none;
+            font-size: 16px;
+            color: #1e98ff;
+        }
+        #infoButton:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+<div id="YMaps"></div>
+<button id="locateButton">📍</button>
+<button id="infoButton">Инфо о точке</button>
+
+<script>
+    ymaps.ready(function () {
+        var myMap = new ymaps.Map('YMaps', {
+            center: [59.91027956419326,30.307836999999967],
+            zoom: 15,
+            controls: ['typeSelector']
+        });
+
+        var userPlacemark;
+        function locateUser() {
+            var locateButton = document.getElementById('locateButton');
+            locateButton.classList.add('active');
+            navigator.geolocation.getCurrentPosition(
+                function (position) {
+                    var userCoords = [position.coords.latitude, position.coords.longitude];
+                    myMap.setCenter(userCoords, 17);
+                    if (userPlacemark) {
+                        myMap.geoObjects.remove(userPlacemark);
+                    }
+                    userPlacemark = new ymaps.Placemark(userCoords, {
+                        hintContent: 'Ваше местоположение',
+                        balloonContent: 'Вы здесь'
+                    }, {
+                        preset: 'islands#redDotIcon'
+                    });
+                    myMap.geoObjects.add(userPlacemark);
+                    locateButton.classList.remove('active');
+                },
+                function (error) {
+                    locateButton.classList.remove('active');
+                }
+            );
+        }
+
+        locateUser();
+        document.getElementById('locateButton').addEventListener('click', locateUser);
+
+        var objectManager = new ymaps.ObjectManager({
+            clusterize: true,
+            clusterHasBalloon: false,
+            geoObjectOpenBalloonOnClick: false,
+            gridSize: 128,
+            minClusterSize: 10
+        });
+
+        objectManager.clusters.options.set({
+            preset: 'islands#grayClusterIcons',
+            hintContentLayout: ymaps.templateLayoutFactory.createClass('Группа точек')
+        });
+
+        jQuery.getJSON(window.location.origin + '/features', function (json) {
+            json.features.forEach(function (feature) {
+                var coordinates = feature.geometry.coordinates;
+
+                if (feature.geometry.type === "Point") {
+                    feature.geometry.coordinates = [coordinates[1], coordinates[0]];
+                    feature.options = {
+                        iconColor: feature.properties['marker-color']
+                    };
+                    objectManager.add(feature);
+                } else if (feature.geometry.type === "Polygon") {
+                    feature.geometry.coordinates = coordinates.map(function (polygon) {
+                        return polygon.map(function (coordPair) {
+                            return [coordPair[1], coordPair[0]];
+                        });
+                    });
+
+                    var polygon = new ymaps.Polygon(feature.geometry.coordinates, {}, {
+                        fillColor: feature.properties.fill,
+                        fillOpacity: feature.properties['fill-opacity'],
+                        strokeColor: feature.properties.stroke,
+                        strokeOpacity: feature.properties['stroke-opacity'],
+                        strokeWidth: feature.properties['stroke-width']
+                    });
+
+                    polygon.events.add('click', function (e) {
+                        var properties = feature.properties.description;
+                        if (properties) {
+                            var coords = e.get('coords');
+                            myMap.balloon.open(coords, properties, {
+                                closeButton: true
+                            });
+                        }
+                    });
+
+                    myMap.geoObjects.add(polygon);
+                }
+            });
+
+            objectManager.objects.events.add('click', function (e) {
+                var objectId = e.get('objectId');
+                var object = objectManager.objects.getById(objectId);
+                var description = object.properties.description;
+
+                if (description) {
+                    var coords = object.geometry.coordinates;
+                    var ballonContent = description + ' (' + objectId + ')';
+                    myMap.balloon.open(coords, ballonContent, {
+                        closeButton: true
+                    });
+                }
+            });
+
+            myMap.geoObjects.add(objectManager);
+        });
+
+        myMap.events.add('balloonclose', function () {
+            var infoButton = document.getElementById('infoButton');
+            infoButton.style.display = 'none';
+        });
+    });
+
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+</script>
+</body>
+</html>
