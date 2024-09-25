@@ -13,19 +13,20 @@
             width: 100%;
             height: 100%;
         }
-        #YMaps {
-            width: 100%;
-            height: 100vh;
-        }
         body > div {
             margin: 0;
             padding: 0;
             height: 100%;
         }
-        @media (max-width: 768px) {
-            #YMaps {
-                height: 100vh;
-            }
+        ymaps[class$="balloon__content"] {
+          background: whitesmoke;
+        }
+        ymaps[class$="balloon__layout"] {
+          padding: 5px;
+          background: whitesmoke;
+        }
+        ymaps[class$="balloon__tail"]::after {
+          background: whitesmoke;
         }
         #locateButton {
             position: absolute;
@@ -42,38 +43,15 @@
             align-items: center;
             justify-content: center;
             font-size: 24px;
-            color: #1e98ff;
-        }
-        #locateButton:hover {
-            background-color: #f0f0f0;
         }
         #locateButton.active {
-            background-color: #d0d0d0;
-        }
-        #infoButton {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            background-color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 10px 20px;
-            cursor: pointer;
-            display: none;
-            font-size: 16px;
-            color: #1e98ff;
-        }
-        #infoButton:hover {
-            background-color: #f0f0f0;
+            background-color: gainsboro;
         }
     </style>
 </head>
 <body>
-<div id="YMaps"></div>
-<button id="locateButton">📍</button>
-<button id="infoButton">Инфо о точке</button>
+<div id='YMaps'></div>
+<button id='locateButton'>📍</button>
 
 <script>
     ymaps.ready(function () {
@@ -83,28 +61,40 @@
             controls: ['typeSelector']
         });
 
+        if (Telegram.WebApp.colorScheme === 'dark') {
+            const MAP = 'custom#dark';
+            ymaps.layer.storage.add(MAP, function mapLayer() {
+                return new ymaps.Layer('https://core-renderer-tiles.maps.yandex.net/tiles?l=map&theme=dark&%c&%l');
+            });
+            ymaps.mapType.storage.add(MAP, new ymaps.MapType('dark', [MAP]));
+            myMap.setType(MAP);
+        }
+
         var userPlacemark;
         function locateUser() {
             var locateButton = document.getElementById('locateButton');
             locateButton.classList.add('active');
+
             navigator.geolocation.getCurrentPosition(
                 function (position) {
                     var userCoords = [position.coords.latitude, position.coords.longitude];
                     myMap.setCenter(userCoords, 17);
+
                     if (userPlacemark) {
                         myMap.geoObjects.remove(userPlacemark);
                     }
+
                     userPlacemark = new ymaps.Placemark(userCoords, {
                         hintContent: 'Ваше местоположение',
                         balloonContent: 'Вы здесь'
                     }, {
-                        preset: 'islands#redDotIcon'
+                        preset: 'islands#geolocationIcon'
                     });
+
                     myMap.geoObjects.add(userPlacemark);
-                    locateButton.classList.remove('active');
-                },
-                function (error) {
-                    locateButton.classList.remove('active');
+                    setTimeout(function() {
+                        locateButton.classList.remove('active');
+                    }, 1000);
                 }
             );
         }
@@ -112,30 +102,29 @@
         locateUser();
         document.getElementById('locateButton').addEventListener('click', locateUser);
 
-        var objectManager = new ymaps.ObjectManager({
+        var pointsManager = new ymaps.ObjectManager({
             clusterize: true,
             clusterHasBalloon: false,
             geoObjectOpenBalloonOnClick: false,
-            gridSize: 128,
-            minClusterSize: 10
+            gridSize: 256,
+            minClusterSize: 16
         });
 
-        objectManager.clusters.options.set({
-            preset: 'islands#grayClusterIcons',
-            hintContentLayout: ymaps.templateLayoutFactory.createClass('Группа точек')
+        pointsManager.clusters.options.set({
+            preset: 'islands#blackClusterIcons'
         });
 
-        jQuery.getJSON(window.location.origin + '/features', function (json) {
+        jQuery.getJSON('/features', function (json) {
             json.features.forEach(function (feature) {
                 var coordinates = feature.geometry.coordinates;
 
-                if (feature.geometry.type === "Point") {
+                if (feature.geometry.type === 'Point') {
                     feature.geometry.coordinates = [coordinates[1], coordinates[0]];
                     feature.options = {
                         iconColor: feature.properties['marker-color']
                     };
-                    objectManager.add(feature);
-                } else if (feature.geometry.type === "Polygon") {
+                    pointsManager.add(feature);
+                } else if (feature.geometry.type === 'Polygon') {
                     feature.geometry.coordinates = coordinates.map(function (polygon) {
                         return polygon.map(function (coordPair) {
                             return [coordPair[1], coordPair[0]];
@@ -164,9 +153,9 @@
                 }
             });
 
-            objectManager.objects.events.add('click', function (e) {
+            pointsManager.objects.events.add('click', function (e) {
                 var objectId = e.get('objectId');
-                var object = objectManager.objects.getById(objectId);
+                var object = pointsManager.objects.getById(objectId);
                 var description = object.properties.description;
 
                 if (description) {
@@ -178,12 +167,7 @@
                 }
             });
 
-            myMap.geoObjects.add(objectManager);
-        });
-
-        myMap.events.add('balloonclose', function () {
-            var infoButton = document.getElementById('infoButton');
-            infoButton.style.display = 'none';
+            myMap.geoObjects.add(pointsManager);
         });
     });
 
