@@ -10,14 +10,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.model.Geometry;
+import ru.tom8hawk.mapbot.model.User;
 import ru.tom8hawk.mapbot.repository.FeatureRepository;
+import ru.tom8hawk.mapbot.util.DateUtil;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
 @Service
-public class FeaturesService {
+public class FeatureService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ObjectNode jsonData = objectMapper.createObjectNode();
     private final ArrayNode featuresArray = objectMapper.createArrayNode();
@@ -40,14 +42,27 @@ public class FeaturesService {
         jsonDataString = jsonData.toString();
     }
 
-    public void save(Feature feature) {
-        featureRepository.save(feature);
+    public void display(Feature feature) {
         JsonNode featureNode = serializeFeature(feature);
         featuresArray.add(featureNode);
         jsonDataString = jsonData.toString();
     }
 
-    public void delete(Feature feature) {
+    public void update(long featureId) {
+        featureRepository.findById(featureId).ifPresent(feature -> {
+            Map<String, String> properties = feature.getProperties();
+            properties.put("marker-color", "#9c6c");
+
+            feature.setModifiedAt(new Date());
+            featureRepository.save(feature);
+
+            remove(feature);
+            featuresArray.add(serializeFeature(feature));
+            jsonDataString = jsonData.toString();
+        });
+    }
+
+    public void remove(Feature feature) {
         Iterator<JsonNode> itr = featuresArray.iterator();
 
         while (itr.hasNext()) {
@@ -161,6 +176,29 @@ public class FeaturesService {
         featureNode.set("geometry", geometryNode);
 
         ObjectNode propertiesNode = objectMapper.createObjectNode();
+        Map<String, String> properties = feature.getProperties();
+
+        if (!properties.containsKey("description")) {
+            User creator = feature.getCreator();
+
+            if (creator != null) {
+                String username = creator.getTelegramUsername();
+
+                if (username == null || username.isEmpty()) {
+                    username = String.valueOf(feature.getCreator().getTelegramId());
+                }
+
+                String description = DateUtil.formatDate(feature.getCreatedAt()) + " @" + username;
+                Date modifiedAt = feature.getModifiedAt();
+
+                if (modifiedAt != null) {
+                    description += "<br>[обновлено " + DateUtil.formatDate(modifiedAt) + "]";
+                }
+
+                properties.put("description", description);
+            }
+        }
+
         feature.getProperties().forEach(propertiesNode::put);
         featureNode.set("properties", propertiesNode);
 

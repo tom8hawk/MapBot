@@ -22,17 +22,13 @@ import ru.tom8hawk.mapbot.model.Geometry;
 import ru.tom8hawk.mapbot.model.User;
 import ru.tom8hawk.mapbot.repository.FeatureRepository;
 import ru.tom8hawk.mapbot.repository.UserRepository;
-import ru.tom8hawk.mapbot.service.FeaturesService;
+import ru.tom8hawk.mapbot.service.FeatureService;
 
 import java.io.File;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Component
 public class MapBot extends TelegramLongPollingBot {
-
-    private final SimpleDateFormat dateFormat =
-            new SimpleDateFormat("d MMM", new Locale("ru"));
 
     @Getter
     @Value("${telegram.bot.username}")
@@ -49,7 +45,7 @@ public class MapBot extends TelegramLongPollingBot {
     private UserRepository userRepository;
 
     @Autowired
-    private FeaturesService featuresService;
+    private FeatureService featureService;
 
     @PostConstruct
     public void init() {
@@ -135,17 +131,11 @@ public class MapBot extends TelegramLongPollingBot {
                     feature.setGeometry(geometry);
 
                     Map<String, String> properties = new HashMap<>();
-
-                    if (username == null || username.isEmpty()) {
-                        username = String.valueOf(userId);
-                    }
-
-                    properties.put("description", dateFormat.format(new Date()) + " @" + username);
                     properties.put("marker-color", "#b51eff");
                     feature.setProperties(properties);
 
                     long featureId = featureRepository.save(feature).getId();
-                    featuresService.save(feature);
+                    featureService.display(feature);
 
                     SendMessage sendMessage = new SendMessage();
                     sendMessage.setChatId(chatId);
@@ -183,7 +173,7 @@ public class MapBot extends TelegramLongPollingBot {
                                 }
                             }
 
-                            featuresService.importFeatures(file);
+                            featureService.importFeatures(file);
 
                             SendMessage sendMessage = createSendMessage(chatId, "Файл успешно обработан!");
                             execute(sendMessage);
@@ -216,7 +206,7 @@ public class MapBot extends TelegramLongPollingBot {
 
                         if (creator != null && Objects.equals(creator.getTelegramId(), callback.getFrom().getId())) {
                             featureRepository.deleteById(featureId);
-                            featuresService.delete(feature);
+                            featureService.remove(feature);
 
                             EditMessageText editMessage = createEditMessageText(chatId,
                                     callback.getMessage().getMessageId(), "\uD83D\uDDD1️");

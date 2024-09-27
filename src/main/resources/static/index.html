@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex"/>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&amp" type="text/javascript"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -28,6 +29,21 @@
         ymaps[class$="balloon__tail"]::after {
           background: whitesmoke;
         }
+        #updateButton {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background-color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+            display: none;
+            font-size: 16px;
+            color: #1e98ff;
+        }
         #locateButton {
             position: absolute;
             top: 10px;
@@ -52,12 +68,124 @@
 <body>
 <div id='YMaps'></div>
 <button id='locateButton'>📍</button>
+<button id="updateButton">Обновить точку</button>
 
 <script>
+    function getUrlParameter(name) {
+        name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+        var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+        var results = regex.exec(location.search);
+        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
     ymaps.ready(function () {
+        var pointsManager = new ymaps.ObjectManager({
+            clusterize: true,
+            clusterHasBalloon: false,
+            geoObjectOpenBalloonOnClick: false,
+            gridSize: 256,
+            minClusterSize: 16
+        });
+
+        pointsManager.clusters.options.set({
+            preset: 'islands#blackClusterIcons'
+        });
+
+        jQuery.getJSON('/features', function (json) {
+            json.features.forEach(function (feature) {
+                var coordinates = feature.geometry.coordinates;
+
+                if (feature.geometry.type === 'Point') {
+                    feature.geometry.coordinates = [coordinates[1], coordinates[0]];
+                    feature.options = {
+                        iconColor: feature.properties['marker-color']
+                    };
+                    pointsManager.add(feature);
+                } else if (feature.geometry.type === 'Polygon') {
+                    feature.geometry.coordinates = coordinates.map(function (polygon) {
+                        return polygon.map(function (coordPair) {
+                            return [coordPair[1], coordPair[0]];
+                        });
+                    });
+
+                    var polygon = new ymaps.Polygon(feature.geometry.coordinates, {}, {
+                        fillColor: feature.properties.fill,
+                        fillOpacity: feature.properties['fill-opacity'],
+                        strokeColor: feature.properties.stroke,
+                        strokeOpacity: feature.properties['stroke-opacity'],
+                        strokeWidth: feature.properties['stroke-width']
+                    });
+
+                    polygon.events.add('click', function (e) {
+                        var updateButton = document.getElementById('updateButton');
+                        updateButton.style.display = 'none';
+
+                        var properties = feature.properties.description;
+                        if (properties) {
+                            var coords = e.get('coords');
+                            myMap.balloon.open(coords, properties, {
+                                closeButton: true
+                            });
+                        }
+                    });
+
+                    myMap.geoObjects.add(polygon);
+                }
+            });
+
+            pointsManager.objects.events.add('click', function (e) {
+                var objectId = e.get('objectId');
+                var object = pointsManager.objects.getById(objectId);
+                var description = object.properties.description;
+
+                if (description) {
+                    var coords = object.geometry.coordinates;
+                    var ballonContent = description + ' (' + objectId + ')';
+                    myMap.balloon.open(coords, ballonContent, {
+                        closeButton: true
+                    });
+
+                    var updateButton = document.getElementById('updateButton');
+                    updateButton.style.display = 'block';
+                    updateButton.onclick = function() {
+                        var initData = Telegram.WebApp.initData;
+                        $.post('/update', { initData: initData, pointId: objectId }, function(response) {
+                            var center = myMap.getCenter();
+                            var centerLat = center[0];
+                            var centerLon = center[1];
+                            var zoom = myMap.getZoom();
+
+                            location.href = location.pathname + '?centerLat=' + centerLat + '&centerLon=' + centerLon + '&zoom=' + zoom;
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1000);
+                        });
+                    };
+                }
+            });
+
+            myMap.geoObjects.add(pointsManager);
+        });
+
+        var zoom;
+        var centerLat;
+        var centerLon;
+
+        if (location.search) {
+            centerLat = parseFloat(getUrlParameter('centerLat'));
+            centerLon = parseFloat(getUrlParameter('centerLon'));
+            zoom = parseInt(getUrlParameter('zoom'));
+        } else {
+            zoom = 15;
+            var centerLat = 59.91027956419326;
+            centerLon = 30.307836999999967;
+
+            locateUser();
+        }
+
         var myMap = new ymaps.Map('YMaps', {
-            center: [59.91027956419326,30.307836999999967],
-            zoom: 15,
+            center: [centerLat, centerLon],
+            zoom: zoom,
             controls: ['typeSelector']
         });
 
@@ -99,80 +227,75 @@
             );
         }
 
-        locateUser();
         document.getElementById('locateButton').addEventListener('click', locateUser);
 
-        var pointsManager = new ymaps.ObjectManager({
-            clusterize: true,
-            clusterHasBalloon: false,
-            geoObjectOpenBalloonOnClick: false,
-            gridSize: 256,
-            minClusterSize: 16
+        myMap.events.add('balloonclose', function () {
+            var updateButton = document.getElementById('updateButton');
+            updateButton.style.display = 'none';
         });
 
-        pointsManager.clusters.options.set({
-            preset: 'islands#blackClusterIcons'
-        });
-
-        jQuery.getJSON('/features', function (json) {
-            json.features.forEach(function (feature) {
-                var coordinates = feature.geometry.coordinates;
-
-                if (feature.geometry.type === 'Point') {
-                    feature.geometry.coordinates = [coordinates[1], coordinates[0]];
-                    feature.options = {
-                        iconColor: feature.properties['marker-color']
-                    };
-                    pointsManager.add(feature);
-                } else if (feature.geometry.type === 'Polygon') {
-                    feature.geometry.coordinates = coordinates.map(function (polygon) {
-                        return polygon.map(function (coordPair) {
-                            return [coordPair[1], coordPair[0]];
-                        });
-                    });
-
-                    var polygon = new ymaps.Polygon(feature.geometry.coordinates, {}, {
-                        fillColor: feature.properties.fill,
-                        fillOpacity: feature.properties['fill-opacity'],
-                        strokeColor: feature.properties.stroke,
-                        strokeOpacity: feature.properties['stroke-opacity'],
-                        strokeWidth: feature.properties['stroke-width']
-                    });
-
-                    polygon.events.add('click', function (e) {
-                        var properties = feature.properties.description;
-                        if (properties) {
-                            var coords = e.get('coords');
-                            myMap.balloon.open(coords, properties, {
-                                closeButton: true
-                            });
-                        }
-                    });
-
-                    myMap.geoObjects.add(polygon);
+        var listBoxItems = ['Новые', 'Устаревшие']
+            .map(function (title) {
+                return new ymaps.control.ListBoxItem({
+                    data: {
+                        content: title
+                    },
+                    state: {
+                        selected: true
+                    }
+                })
+            }),
+            reducer = function (filters, filter) {
+                filters[filter.data.get('content')] = filter.isSelected();
+                return filters;
+            },
+            listBoxControl = new ymaps.control.ListBox({
+                data: {
+                    content: 'Фильтр',
+                    title: 'Фильтр'
+                },
+                items: listBoxItems,
+                state: {
+                    expanded: false,
+                    filters: listBoxItems.reduce(reducer, {})
                 }
             });
 
-            pointsManager.objects.events.add('click', function (e) {
-                var objectId = e.get('objectId');
-                var object = pointsManager.objects.getById(objectId);
-                var description = object.properties.description;
-
-                if (description) {
-                    var coords = object.geometry.coordinates;
-                    var ballonContent = description + ' (' + objectId + ')';
-                    myMap.balloon.open(coords, ballonContent, {
-                        closeButton: true
-                    });
-                }
-            });
-
-            myMap.geoObjects.add(pointsManager);
+        myMap.controls.add(listBoxControl, {
+            position: {
+                top: 45,
+                right: 10
+            }
         });
+
+        listBoxControl.events.add(['select', 'deselect'], function (e) {
+            var listBoxItem = e.get('target');
+            var filters = ymaps.util.extend({}, listBoxControl.state.get('filters'));
+            filters[listBoxItem.data.get('content')] = listBoxItem.isSelected();
+            listBoxControl.state.set('filters', filters);
+        });
+
+        var filterMonitor = new ymaps.Monitor(listBoxControl.state);
+        filterMonitor.add('filters', function (filters) {
+            pointsManager.setFilter(getFilterFunction(filters));
+        });
+
+        function getFilterFunction(categories) {
+            return function (obj) {
+                var content = obj.properties.description;
+
+                if (!content) {
+                    return false;
+                }
+
+                return (categories['Новые'] && content.includes('обновлено')) ||
+                       (categories['Устаревшие'] && !content.includes('обновлено'));
+            }
+        }
+
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
     });
-
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();
 </script>
 </body>
 </html>
