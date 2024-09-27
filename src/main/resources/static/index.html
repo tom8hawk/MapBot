@@ -283,16 +283,12 @@
             pointsManager.setFilter(getFilterFunction(filters));
         });
 
+        var newPointColor = '#9c6c';
         function getFilterFunction(categories) {
             return function (obj) {
-                var content = obj.properties.description;
-
-                if (!content) {
-                    return false;
-                }
-
-                return (categories['Новые'] && content.includes('обновлено')) ||
-                       (categories['Устаревшие'] && !content.includes('обновлено'));
+                var markerColor = obj.properties['marker-color'];
+                return (categories['Новые'] && markerColor === newPointColor) ||
+                       (categories['Устаревшие'] && markerColor !== newPointColor);
             }
         }
 

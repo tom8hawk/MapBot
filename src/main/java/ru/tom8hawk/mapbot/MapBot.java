@@ -131,7 +131,7 @@ public class MapBot extends TelegramLongPollingBot {
                     feature.setGeometry(geometry);
 
                     Map<String, String> properties = new HashMap<>();
-                    properties.put("marker-color", "#b51eff");
+                    properties.put("marker-color", "#9c6c");
                     feature.setProperties(properties);
 
                     long featureId = featureRepository.save(feature).getId();
