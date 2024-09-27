@@ -18,17 +18,21 @@ public class FeatureController {
     private InitDataValidator initDataValidator;
 
     @GetMapping("/features")
-    public String getData() {
+    public String getFeatures(@RequestParam String initData) {
+        if (!initDataValidator.checkData(initData)) {
+            return null;
+        }
+
         return featureService.getJsonDataString();
     }
 
     @PostMapping("/update")
     public boolean updateFeature(@RequestParam String initData, @RequestParam long pointId) {
-        if (initDataValidator.checkData(initData)) {
-            featureService.update(pointId);
-            return true;
+        if (!initDataValidator.checkData(initData)) {
+            return false;
         }
 
-        return false;
+        featureService.update(pointId);
+        return true;
     }
 }

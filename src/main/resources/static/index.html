@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex"/>
+    <meta name="robots" content="noindex">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&amp" type="text/javascript"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -91,7 +91,7 @@
             preset: 'islands#blackClusterIcons'
         });
 
-        jQuery.getJSON('/features', function (json) {
+        jQuery.getJSON('/features', { initData: Telegram.WebApp.initData }, function (json) {
             json.features.forEach(function (feature) {
                 var coordinates = feature.geometry.coordinates;
 
@@ -165,6 +165,9 @@
             });
 
             myMap.geoObjects.add(pointsManager);
+        })
+        .fail(function () {
+            window.location.href = '/404';
         });
 
         var zoom;
