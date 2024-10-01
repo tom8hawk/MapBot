@@ -1,6 +1,5 @@
-package ru.tom8hawk.mapbot.util;
+package ru.tom8hawk.mapbot.component;
 
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import ru.tom8hawk.mapbot.MapBot;
@@ -24,7 +23,7 @@ public class InitDataValidator {
     }
 
     public boolean checkData(String initData) {
-        if (StringUtils.isBlank(initData)) {
+        if (initData == null || initData.isBlank()) {
             return false;
         }
 

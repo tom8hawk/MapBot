@@ -5,17 +5,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ru.tom8hawk.mapbot.component.InitDataValidator;
 import ru.tom8hawk.mapbot.service.FeatureService;
-import ru.tom8hawk.mapbot.util.InitDataValidator;
 
 @RestController
 public class FeatureController {
 
-    @Autowired
-    private FeatureService featureService;
+    private final FeatureService featureService;
+    private final InitDataValidator initDataValidator;
 
     @Autowired
-    private InitDataValidator initDataValidator;
+    public FeatureController(FeatureService featureService, InitDataValidator initDataValidator) {
+        this.featureService = featureService;
+        this.initDataValidator = initDataValidator;
+    }
 
     @GetMapping("/features")
     public String getFeatures(@RequestParam String initData) {

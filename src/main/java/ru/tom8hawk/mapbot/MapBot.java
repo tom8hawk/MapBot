@@ -17,6 +17,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
+import ru.tom8hawk.mapbot.component.FeatureConfig;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.model.Geometry;
 import ru.tom8hawk.mapbot.model.User;
@@ -31,29 +32,38 @@ import java.util.*;
 public class MapBot extends TelegramLongPollingBot {
 
     @Getter
-    @Value("${telegram.bot.username}")
-    private String botUsername;
+    private final String botUsername;
 
     @Getter
-    @Value("${telegram.bot.token}")
-    private String botToken;
+    private final String botToken;
+
+    private final FeatureRepository featureRepository;
+    private final UserRepository userRepository;
+    private final FeatureService featureService;
+
+    private final FeatureConfig featureConfig;
 
     @Autowired
-    private FeatureRepository featureRepository;
+    public MapBot(
+            @Value("${telegram.bot.username}") String botUsername,
+            @Value("${telegram.bot.token}") String botToken,
+            FeatureRepository featureRepository,
+            UserRepository userRepository,
+            FeatureService featureService,
+            FeatureConfig featureConfig
+    ) {
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private FeatureService featureService;
+        this.botUsername = botUsername;
+        this.botToken = botToken;
+        this.featureRepository = featureRepository;
+        this.userRepository = userRepository;
+        this.featureService = featureService;
+        this.featureConfig = featureConfig;
+    }
 
     @PostConstruct
-    public void init() {
-        try {
-            new TelegramBotsApi(DefaultBotSession.class).registerBot(this);
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
+    public void init() throws TelegramApiException {
+        new TelegramBotsApi(DefaultBotSession.class).registerBot(this);
     }
 
     @Override
@@ -73,7 +83,7 @@ public class MapBot extends TelegramLongPollingBot {
                     user.setTelegramId(userId);
                     user.setTelegramUsername(username);
                     userRepository.save(user);
-                } else if (!Objects.equals(user.getTelegramUsername(), username)) {
+                } else if (username != null && !username.equals(user.getTelegramUsername())) {
                     user.setTelegramUsername(username);
                     userRepository.save(user);
                 }
@@ -131,7 +141,7 @@ public class MapBot extends TelegramLongPollingBot {
                     feature.setGeometry(geometry);
 
                     Map<String, String> properties = new HashMap<>();
-                    properties.put("marker-color", "#9c6c");
+                    properties.put("marker-color", featureConfig.getMarkerColor());
                     feature.setProperties(properties);
 
                     long featureId = featureRepository.save(feature).getId();
@@ -173,7 +183,7 @@ public class MapBot extends TelegramLongPollingBot {
                                 }
                             }
 
-                            featureService.importFeatures(file);
+                            featureService.importFromFile(file);
 
                             SendMessage sendMessage = createSendMessage(chatId, "Файл успешно обработан!");
                             execute(sendMessage);

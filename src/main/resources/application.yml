@@ -1,0 +1,16 @@
+server.address: '0.0.0.0'
+
+telegram.bot:
+  username: 'map_bot'
+  token: 'bot_token'
+
+feature:
+  date-format: 'd MMM'
+  marker-color: '#9c6c'
+
+spring:
+  jpa.hibernate.ddl-auto: update
+  datasource:
+    url: 'jdbc:mysql://localhost:3306/map_db'
+    username: 'username'
+    password: 'password'
