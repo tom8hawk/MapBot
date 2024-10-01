@@ -20,13 +20,16 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 import ru.tom8hawk.mapbot.component.FeatureConfig;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.model.Geometry;
+import ru.tom8hawk.mapbot.model.Properties;
 import ru.tom8hawk.mapbot.model.User;
 import ru.tom8hawk.mapbot.repository.FeatureRepository;
 import ru.tom8hawk.mapbot.repository.UserRepository;
 import ru.tom8hawk.mapbot.service.FeatureService;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 @Component
 public class MapBot extends TelegramLongPollingBot {
@@ -140,8 +143,8 @@ public class MapBot extends TelegramLongPollingBot {
                     geometry.setCoordinates(new double[]{ longitude, latitude });
                     feature.setGeometry(geometry);
 
-                    Map<String, String> properties = new HashMap<>();
-                    properties.put("marker-color", featureConfig.getMarkerColor());
+                    Properties properties = new Properties();
+                    properties.setMarkerColor(featureConfig.getMarkerColor());
                     feature.setProperties(properties);
 
                     long featureId = featureRepository.save(feature).getId();

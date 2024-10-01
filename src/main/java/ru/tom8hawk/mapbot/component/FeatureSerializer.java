@@ -7,11 +7,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.model.Geometry;
+import ru.tom8hawk.mapbot.model.Properties;
 import ru.tom8hawk.mapbot.model.User;
 
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 public class FeatureSerializer {
@@ -60,12 +61,10 @@ public class FeatureSerializer {
         }
 
         if (featureNode.has("properties")) {
-            Map<String, String> properties = new HashMap<>();
+            Map<String, String> properties = featureNode.get("properties").properties().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().asText()));
 
-            featureNode.get("properties").fields().forEachRemaining(entry ->
-                    properties.put(entry.getKey(), entry.getValue().asText()));
-
-            feature.setProperties(properties);
+            feature.setProperties(new Properties(properties));
         }
 
         return feature;
@@ -107,9 +106,9 @@ public class FeatureSerializer {
         featureNode.set("geometry", geometryNode);
 
         ObjectNode propertiesNode = objectMapper.createObjectNode();
-        Map<String, String> properties = feature.getProperties();
+        Properties properties = feature.getProperties();
 
-        if (!properties.containsKey("description")) {
+        if (properties.getDescription() == null) {
             User creator = feature.getCreator();
 
             if (creator != null) {
@@ -126,11 +125,11 @@ public class FeatureSerializer {
                     description += "<br>[обновлено " + featureConfig.formatDate(modifiedAt) + "]";
                 }
 
-                properties.put("description", description);
+                properties.setDescription(description);
             }
         }
 
-        feature.getProperties().forEach(propertiesNode::put);
+        properties.getPropertiesMap().forEach(propertiesNode::put);
         featureNode.set("properties", propertiesNode);
 
         return featureNode;

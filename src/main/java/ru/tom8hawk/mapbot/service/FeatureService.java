@@ -26,12 +26,15 @@ public class FeatureService {
     private final FeatureRepository featureRepository;
     private final FeatureSerializer featureSerializer;
 
+    private final FeatureConfig featureConfig;
+
     @Getter
     private String jsonDataString;
 
     @Autowired
     public FeatureService(FeatureRepository featureRepository, FeatureConfig featureConfig) {
         this.featureRepository = featureRepository;
+        this.featureConfig = featureConfig;
         this.featureSerializer = new FeatureSerializer(objectMapper, featureConfig);
     }
 
@@ -55,9 +58,7 @@ public class FeatureService {
     public void update(long featureId) {
         featureRepository.findById(featureId).ifPresent(feature -> {
             feature.setModifiedAt(new Date());
-
-            Map<String, String> properties = feature.getProperties();
-            properties.put("marker-color", "#9c6c");
+            feature.getProperties().setMarkerColor(featureConfig.getMarkerColor());
 
             featureRepository.save(feature);
             remove(feature);
