@@ -27,9 +27,9 @@ public class FeatureSerializer {
 
     public Feature deserialize(JsonNode featureNode) {
         Feature feature = new Feature();
+        JsonNode geometryNode = featureNode.get("geometry");
 
-        if (featureNode.has("geometry")) {
-            JsonNode geometryNode = featureNode.get("geometry");
+        if (geometryNode != null) {
             Geometry geometry = new Geometry();
             geometry.setType(geometryNode.get("type").asText());
 
@@ -60,8 +60,10 @@ public class FeatureSerializer {
             feature.setGeometry(geometry);
         }
 
-        if (featureNode.has("properties")) {
-            Map<String, String> properties = featureNode.get("properties").properties().stream()
+        JsonNode propertiesNode = featureNode.get("properties");
+
+        if (propertiesNode != null) {
+            Map<String, String> properties = propertiesNode.properties().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().asText()));
 
             feature.setProperties(new Properties(properties));

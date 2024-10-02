@@ -29,7 +29,6 @@ import ru.tom8hawk.mapbot.service.FeatureService;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Component
 public class MapBot extends TelegramLongPollingBot {
@@ -181,18 +180,19 @@ public class MapBot extends TelegramLongPollingBot {
                             if (fileName.endsWith(".geojson")) {
                                 File renamedFile = new File(file.getParent(),
                                         fileName.replace(".geojson", ".json"));
+
                                 if (file.renameTo(renamedFile)) {
                                     file = renamedFile;
                                 }
                             }
 
                             featureService.importFromFile(file);
-
-                            SendMessage sendMessage = createSendMessage(chatId, "Файл успешно обработан!");
-                            execute(sendMessage);
+                            execute(createSendMessage(chatId, "Файл успешно обработан!"));
                         } catch (Exception e) {
                             e.printStackTrace();
-                            SendMessage sendMessage = createSendMessage(chatId, "Ошибка при обработке файла.");
+
+                            SendMessage sendMessage = createSendMessage(chatId,
+                                    "Ошибка при обработке файла! Изменения не были внесены.");
 
                             try {
                                 execute(sendMessage);
@@ -217,7 +217,7 @@ public class MapBot extends TelegramLongPollingBot {
                     if (feature != null) {
                         User creator = feature.getCreator();
 
-                        if (creator != null && Objects.equals(creator.getTelegramId(), callback.getFrom().getId())) {
+                        if (creator != null && callback.getFrom().getId() == creator.getTelegramId()) {
                             featureRepository.deleteById(featureId);
                             featureService.remove(feature);
 

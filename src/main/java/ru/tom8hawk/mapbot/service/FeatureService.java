@@ -15,7 +15,10 @@ import ru.tom8hawk.mapbot.repository.FeatureRepository;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
 
 @Service
 public class FeatureService {
@@ -90,8 +93,8 @@ public class FeatureService {
             List<Feature> features = new ArrayList<>();
 
             for (JsonNode featureNode : featuresNode) {
-                featuresArray.add(featureNode);
                 features.add(featureSerializer.deserialize(featureNode));
+                featuresArray.add(featureNode);
             }
 
             featureRepository.saveAll(features);
