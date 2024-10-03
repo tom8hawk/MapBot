@@ -8,13 +8,15 @@ import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ru.tom8hawk.mapbot.component.FeatureConfig;
+import ru.tom8hawk.mapbot.MapConstants;
 import ru.tom8hawk.mapbot.component.FeatureSerializer;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.repository.FeatureRepository;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -29,16 +31,13 @@ public class FeatureService {
     private final FeatureRepository featureRepository;
     private final FeatureSerializer featureSerializer;
 
-    private final FeatureConfig featureConfig;
-
     @Getter
     private String jsonDataString;
 
     @Autowired
-    public FeatureService(FeatureRepository featureRepository, FeatureConfig featureConfig) {
+    public FeatureService(FeatureRepository featureRepository) {
         this.featureRepository = featureRepository;
-        this.featureConfig = featureConfig;
-        this.featureSerializer = new FeatureSerializer(objectMapper, featureConfig);
+        this.featureSerializer = new FeatureSerializer(objectMapper);
     }
 
     @PostConstruct
@@ -61,7 +60,7 @@ public class FeatureService {
     public void update(long featureId) {
         featureRepository.findById(featureId).ifPresent(feature -> {
             feature.setModifiedAt(new Date());
-            feature.getProperties().setMarkerColor(featureConfig.getMarkerColor());
+            feature.getProperties().setMarkerColor(MapConstants.MARKER_COLOR);
 
             featureRepository.save(feature);
             remove(feature);
@@ -86,7 +85,7 @@ public class FeatureService {
         jsonDataString = jsonData.toString();
     }
 
-    public void importFromFile(File file) throws IOException {
+    public void importFeatures(File file) throws IOException {
         JsonNode featuresNode = objectMapper.readTree(file).get("features");
 
         if (featuresNode != null && featuresNode.isArray()) {
@@ -100,5 +99,10 @@ public class FeatureService {
             featureRepository.saveAll(features);
             jsonDataString = jsonData.toString();
         }
+    }
+
+    public InputStream exportFeatures() {
+        byte[] data = jsonDataString.replace("<br>", " ").getBytes();
+        return new ByteArrayInputStream(data);
     }
 }

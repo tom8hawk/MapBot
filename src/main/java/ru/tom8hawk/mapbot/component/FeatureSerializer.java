@@ -5,24 +5,28 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
+import ru.tom8hawk.mapbot.MapConstants;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.model.Geometry;
 import ru.tom8hawk.mapbot.model.Properties;
 import ru.tom8hawk.mapbot.model.User;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
 public class FeatureSerializer {
 
-    private final ObjectMapper objectMapper;
-    private final FeatureConfig featureConfig;
+    private static final SimpleDateFormat dateFormat =
+            new SimpleDateFormat("d MMM", new Locale("ru"));
 
-    public FeatureSerializer(ObjectMapper objectMapper, FeatureConfig featureConfig) {
+    private final ObjectMapper objectMapper;
+
+    public FeatureSerializer(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.featureConfig = featureConfig;
     }
 
     public Feature deserialize(JsonNode featureNode) {
@@ -120,11 +124,11 @@ public class FeatureSerializer {
                     username = String.valueOf(feature.getCreator().getTelegramId());
                 }
 
-                String description = featureConfig.formatDate(feature.getCreatedAt()) + " @" + username;
+                String description = dateFormat.format(feature.getCreatedAt()) + " @" + username;
                 Date modifiedAt = feature.getModifiedAt();
 
                 if (modifiedAt != null) {
-                    description += "<br>[обновлено " + featureConfig.formatDate(modifiedAt) + "]";
+                    description += "<br>[обновлено " + dateFormat.format(modifiedAt) + "]";
                 }
 
                 properties.setDescription(description);
