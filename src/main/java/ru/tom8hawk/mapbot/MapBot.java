@@ -74,7 +74,7 @@ public class MapBot extends TelegramLongPollingBot {
 
                 if (message.getChat().isUserChat()) {
                     String chatId = message.getChatId().toString();
-                    long userId = message.getFrom().getId();
+                    Long userId = message.getFrom().getId();
                     String username = message.getFrom().getUserName();
                     User user = userRepository.findByTelegramId(userId);
 
@@ -131,7 +131,7 @@ public class MapBot extends TelegramLongPollingBot {
                         properties.setMarkerColor(MapConstants.MARKER_COLOR);
                         feature.setProperties(properties);
 
-                        long featureId = featureRepository.save(feature).getId();
+                        Long featureId = featureRepository.save(feature).getId();
                         featureService.display(feature);
 
                         SendMessage sendMessage = new SendMessage();

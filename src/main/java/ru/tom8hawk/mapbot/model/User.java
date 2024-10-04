@@ -13,11 +13,10 @@ import java.util.List;
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+    private Long id;
 
-    private long telegramId;
+    private Long telegramId;
     private String telegramUsername;
-    private boolean isAdmin;
 
     @OneToMany(mappedBy = "id", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Feature> features;
