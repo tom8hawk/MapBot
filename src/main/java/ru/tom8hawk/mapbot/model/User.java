@@ -16,7 +16,7 @@ public class User {
     private Long id;
 
     private Long telegramId;
-    private String telegramUsername;
+    private String username;
 
     @OneToMany(mappedBy = "id", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Feature> features;

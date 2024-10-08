@@ -1,12 +1,10 @@
-server.address: '0.0.0.0'
+server:
+  port: 80
+  address: '0.0.0.0'
 
 telegram.bot:
   username: 'map_bot'
   token: 'bot_token'
-
-feature:
-  date-format: 'd MMM'
-  marker-color: '#9c6c'
 
 spring:
   jpa.hibernate.ddl-auto: update

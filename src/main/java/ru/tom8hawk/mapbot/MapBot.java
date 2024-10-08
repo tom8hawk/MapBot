@@ -74,21 +74,19 @@ public class MapBot extends TelegramLongPollingBot {
 
                 if (message.getChat().isUserChat()) {
                     String chatId = message.getChatId().toString();
-                    Long userId = message.getFrom().getId();
+                    Long userTelegramId = message.getFrom().getId();
                     String username = message.getFrom().getUserName();
-                    User user = userRepository.findByTelegramId(userId);
+                    User user = userRepository.findByTelegramId(userTelegramId);
 
                     if (user == null) {
                         user = new User();
-                        user.setTelegramId(userId);
-                        user.setTelegramUsername(username);
+                        user.setTelegramId(userTelegramId);
+                        user.setUsername(username);
                         userRepository.save(user);
-                    } else if (username != null && !username.equals(user.getTelegramUsername())) {
-                        user.setTelegramUsername(username);
+                    } else if (username != null && !username.equals(user.getUsername())) {
+                        user.setUsername(username);
                         userRepository.save(user);
                     }
-
-                    boolean isUserAdmin = MapConstants.ADMINISTRATORS.contains(String.valueOf(userId));
 
                     if (message.hasText()) {
                         String messageText = message.getText();
@@ -103,7 +101,7 @@ public class MapBot extends TelegramLongPollingBot {
                             return;
                         }
 
-                        if (isUserAdmin) {
+                        if (isAdmin(userTelegramId)) {
                             SendMessage adminMessage = new SendMessage();
                             adminMessage.setChatId(chatId);
                             adminMessage.setText("Данные бота");
@@ -146,7 +144,7 @@ public class MapBot extends TelegramLongPollingBot {
                         ));
 
                         execute(sendMessage);
-                    } else if (message.hasDocument() && isUserAdmin) {
+                    } else if (message.hasDocument() && isAdmin(userTelegramId)) {
                         String fileId = message.getDocument().getFileId();
                         String fileName = message.getDocument().getFileName();
 
@@ -169,6 +167,7 @@ public class MapBot extends TelegramLongPollingBot {
                 CallbackQuery callback = update.getCallbackQuery();
 
                 String callbackData = callback.getData();
+                Long userTelegramId = callback.getFrom().getId();
                 Integer messageId = callback.getMessage().getMessageId();
                 String chatId = callback.getMessage().getChatId().toString();
 
@@ -180,7 +179,7 @@ public class MapBot extends TelegramLongPollingBot {
                         if (feature != null) {
                             User creator = feature.getCreator();
 
-                            if (creator != null && callback.getFrom().getId() == creator.getTelegramId()) {
+                            if (creator != null && callback.getFrom().getId().equals(creator.getTelegramId())) {
                                 featureRepository.deleteById(featureId);
                                 featureService.remove(feature);
 
@@ -194,30 +193,36 @@ public class MapBot extends TelegramLongPollingBot {
 
                     execute(createEditMessageText(chatId, messageId, "Ошибка: такой точки не существует!"));
 
-                } else if (callbackData.equals("import")) {
-                    SendMessage sendMessage = createSendMessage(chatId,
-                            "Чтобы импортировать точки, отправь мне .geojson файл");
+                } else if (isAdmin(userTelegramId)) {
+                    if (callbackData.equals("import")) {
+                        SendMessage sendMessage = createSendMessage(chatId,
+                                "Чтобы импортировать точки, отправь мне .geojson файл");
 
-                    sendMessage.setReplyMarkup(createKeyboard(
-                            InlineKeyboardButton.builder()
-                                    .text("Конструктор карт Яндекса")
-                                    .url("https://yandex.ru/map-constructor/")
-                                    .build()
-                    ));
+                        sendMessage.setReplyMarkup(createKeyboard(
+                                InlineKeyboardButton.builder()
+                                        .text("Конструктор карт Яндекса")
+                                        .url("https://yandex.ru/map-constructor/")
+                                        .build()
+                        ));
 
-                    execute(sendMessage);
-                } else if (callbackData.equals("export")) {
-                    SendDocument sendDocument = new SendDocument();
+                        execute(sendMessage);
+                    } else if (callbackData.equals("export")) {
+                        SendDocument sendDocument = new SendDocument();
 
-                    sendDocument.setChatId(chatId);
-                    sendDocument.setDocument(new InputFile(featureService.exportFeatures(), "bot.geojson"));
+                        sendDocument.setChatId(chatId);
+                        sendDocument.setDocument(new InputFile(featureService.exportFeatures(), "bot.geojson"));
 
-                    execute(sendDocument);
+                        execute(sendDocument);
+                    }
                 }
             }
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
+    }
+
+    private boolean isAdmin(Long userTelegramId) {
+        return MapConstants.ADMINISTRATORS.contains(userTelegramId.toString());
     }
 
     private SendMessage createSendMessage(String chatId, String text) {

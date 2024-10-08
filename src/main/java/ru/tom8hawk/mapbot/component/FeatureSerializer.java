@@ -118,7 +118,7 @@ public class FeatureSerializer {
             User creator = feature.getCreator();
 
             if (creator != null) {
-                String username = creator.getTelegramUsername();
+                String username = creator.getUsername();
 
                 if (username == null || username.isEmpty()) {
                     username = String.valueOf(feature.getCreator().getTelegramId());
