@@ -15,7 +15,6 @@ import java.util.Objects;
 @Component
 public class InitDataValidator {
 
-
     private final byte[] secretKey;
 
     @Autowired
