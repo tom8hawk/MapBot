@@ -1,6 +1,8 @@
 package ru.tom8hawk.mapbot.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,21 +23,21 @@ public class FeatureController {
     }
 
     @GetMapping("/features")
-    public String getFeatures(@RequestParam String initData) {
+    public ResponseEntity<String> getFeatures(@RequestParam String initData) {
         if (!initDataValidator.checkData(initData)) {
-            return null;
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        return featureService.getJsonDataString();
+        return ResponseEntity.ok(featureService.getJsonDataString());
     }
 
     @PostMapping("/update")
-    public boolean updateFeature(@RequestParam String initData, @RequestParam long pointId) {
+    public ResponseEntity<Void> updateFeature(@RequestParam String initData, @RequestParam long pointId) {
         if (!initDataValidator.checkData(initData)) {
-            return false;
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         featureService.update(pointId);
-        return true;
+        return ResponseEntity.ok().build();
     }
 }

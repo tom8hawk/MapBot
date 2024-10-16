@@ -37,3 +37,4 @@ build/
 .DS_Store
 /.idea/
 !/src/main/resources/application.yml
+!/src/main/java/ru/tom8hawk/mapbot/MapConstants.java
