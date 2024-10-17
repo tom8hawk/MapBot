@@ -23,9 +23,9 @@ import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.model.Geometry;
 import ru.tom8hawk.mapbot.model.Properties;
 import ru.tom8hawk.mapbot.model.User;
-import ru.tom8hawk.mapbot.repository.FeatureRepository;
-import ru.tom8hawk.mapbot.repository.UserRepository;
+import ru.tom8hawk.mapbot.service.FeaturesMapService;
 import ru.tom8hawk.mapbot.service.FeatureService;
+import ru.tom8hawk.mapbot.service.UserService;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,24 +41,24 @@ public class MapBot extends TelegramLongPollingBot {
     @Getter
     private final String botToken;
 
-    private final FeatureRepository featureRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final FeatureService featureService;
+    private final FeaturesMapService featuresMapService;
 
     @Autowired
     public MapBot(
             @Value("${telegram.bot.username}") String botUsername,
             @Value("${telegram.bot.token}") String botToken,
-            FeatureRepository featureRepository,
-            UserRepository userRepository,
-            FeatureService featureService
+            UserService userService,
+            FeatureService featureService,
+            FeaturesMapService featuresMapService
     ) {
 
         this.botUsername = botUsername;
         this.botToken = botToken;
-        this.featureRepository = featureRepository;
-        this.userRepository = userRepository;
+        this.userService = userService;
         this.featureService = featureService;
+        this.featuresMapService = featuresMapService;
     }
 
     @PostConstruct
@@ -75,18 +75,6 @@ public class MapBot extends TelegramLongPollingBot {
                 if (message.getChat().isUserChat()) {
                     String chatId = message.getChatId().toString();
                     Long userTelegramId = message.getFrom().getId();
-                    String username = message.getFrom().getUserName();
-                    User user = userRepository.findByTelegramId(userTelegramId);
-
-                    if (user == null) {
-                        user = new User();
-                        user.setTelegramId(userTelegramId);
-                        user.setUsername(username);
-                        userRepository.save(user);
-                    } else if (username != null && !username.equals(user.getUsername())) {
-                        user.setUsername(username);
-                        userRepository.save(user);
-                    }
 
                     if (message.hasText()) {
                         String messageText = message.getText();
@@ -97,12 +85,9 @@ public class MapBot extends TelegramLongPollingBot {
                             
                             Для отметки листовки просто отправь мне геометку""")
                             );
-                        } else if (!messageText.equals("/admin")) {
-                            return;
-                        }
-
-                        if (isAdmin(userTelegramId)) {
+                        } else if (messageText.equals("/admin") && isAdmin(userTelegramId)) {
                             SendMessage adminMessage = new SendMessage();
+
                             adminMessage.setChatId(chatId);
                             adminMessage.setText("Данные бота");
 
@@ -114,6 +99,19 @@ public class MapBot extends TelegramLongPollingBot {
                             execute(adminMessage);
                         }
                     } else if (message.hasLocation()) {
+                        String username = message.getFrom().getUserName();
+                        User user = userService.findByTelegramId(userTelegramId).orElse(null);
+
+                        if (user == null) {
+                            user = new User();
+                            user.setTelegramId(userTelegramId);
+                            user.setUsername(username);
+                            userService.save(user);
+                        } else if (username != null && !username.equals(user.getUsername())) {
+                            user.setUsername(username);
+                            userService.save(user);
+                        }
+
                         double longitude = message.getLocation().getLongitude();
                         double latitude = message.getLocation().getLatitude();
 
@@ -129,8 +127,8 @@ public class MapBot extends TelegramLongPollingBot {
                         properties.setMarkerColor(MapConstants.MARKER_COLOR);
                         feature.setProperties(properties);
 
-                        Long featureId = featureRepository.save(feature).getId();
-                        featureService.display(feature);
+                        featureService.save(feature);
+                        featuresMapService.display(feature);
 
                         SendMessage sendMessage = new SendMessage();
                         sendMessage.setChatId(chatId);
@@ -139,7 +137,7 @@ public class MapBot extends TelegramLongPollingBot {
                         sendMessage.setReplyMarkup(createKeyboard(
                                 InlineKeyboardButton.builder()
                                         .text("\uD83D\uDDD1 Удалить️")
-                                        .callbackData("delete_" + featureId)
+                                        .callbackData("delete_" + feature.getId())
                                         .build()
                         ));
 
@@ -152,7 +150,7 @@ public class MapBot extends TelegramLongPollingBot {
                             try {
                                 String filePath = execute(new GetFile(fileId)).getFilePath();
                                 File file = downloadFile(filePath);
-                                featureService.importFeatures(file);
+                                featuresMapService.importFeatures(file);
 
                                 execute(createSendMessage(chatId, "Файл успешно обработан!"));
                             } catch (IOException e) {
@@ -173,16 +171,15 @@ public class MapBot extends TelegramLongPollingBot {
 
                 if (callbackData.contains("delete")) {
                     try {
-                        long featureId = Long.parseLong(callbackData.split("_")[1]);
-                        Feature feature = featureRepository.findById(featureId).orElse(null);
+                        Long featureId = Long.parseLong(callbackData.split("_")[1]);
+                        Feature feature = featureService.findById(featureId).orElse(null);
 
                         if (feature != null) {
                             User creator = feature.getCreator();
 
                             if (creator != null && callback.getFrom().getId().equals(creator.getTelegramId())) {
-                                featureRepository.deleteById(featureId);
-                                featureService.remove(feature);
-
+                                featureService.delete(feature);
+                                featuresMapService.remove(feature);
                                 execute(createEditMessageText(chatId, messageId, "\uD83D\uDDD1️"));
 
                                 return;
@@ -208,9 +205,10 @@ public class MapBot extends TelegramLongPollingBot {
                         execute(sendMessage);
                     } else if (callbackData.equals("export")) {
                         SendDocument sendDocument = new SendDocument();
-
                         sendDocument.setChatId(chatId);
-                        sendDocument.setDocument(new InputFile(featureService.exportFeatures(), "bot.geojson"));
+
+                        sendDocument.setDocument(new InputFile(
+                                featuresMapService.exportFeatures(), "bot.geojson"));
 
                         execute(sendDocument);
                     }

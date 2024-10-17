@@ -8,17 +8,24 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.tom8hawk.mapbot.component.InitDataValidator;
+import ru.tom8hawk.mapbot.service.FeaturesMapService;
 import ru.tom8hawk.mapbot.service.FeatureService;
 
 @RestController
 public class FeatureController {
 
     private final FeatureService featureService;
+    private final FeaturesMapService featuresMapService;
     private final InitDataValidator initDataValidator;
 
     @Autowired
-    public FeatureController(FeatureService featureService, InitDataValidator initDataValidator) {
+    public FeatureController(
+            FeatureService featureService,
+            FeaturesMapService featuresMapService,
+            InitDataValidator initDataValidator) {
+
         this.featureService = featureService;
+        this.featuresMapService = featuresMapService;
         this.initDataValidator = initDataValidator;
     }
 
@@ -28,7 +35,7 @@ public class FeatureController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        return ResponseEntity.ok(featureService.getJsonDataString());
+        return ResponseEntity.ok(featuresMapService.getFeaturesMapString());
     }
 
     @PostMapping("/update")
@@ -37,7 +44,9 @@ public class FeatureController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        featureService.update(pointId);
+        featureService.update(pointId)
+                .ifPresent(featuresMapService::update);
+
         return ResponseEntity.ok().build();
     }
 }
