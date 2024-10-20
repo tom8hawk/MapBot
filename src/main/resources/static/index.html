@@ -74,12 +74,14 @@
         name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
         var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
         var results = regex.exec(location.search);
-        return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        return decodeURIComponent(results[1].replace(/\+/g, ' '));
     }
 
     ymaps.ready(function () {
+        var cluster = Telegram.WebApp.initDataUnsafe.start_param != 'no_cluster';
+
         var pointsManager = new ymaps.ObjectManager({
-            clusterize: true,
+            clusterize: cluster,
             clusterHasBalloon: false,
             geoObjectOpenBalloonOnClick: false,
             gridSize: 256,
@@ -173,10 +175,10 @@
         var centerLat;
         var centerLon;
 
-        if (location.search) {
+        if (location.search.includes('zoom')) {
+            zoom = parseInt(getUrlParameter('zoom'));
             centerLat = parseFloat(getUrlParameter('centerLat'));
             centerLon = parseFloat(getUrlParameter('centerLon'));
-            zoom = parseInt(getUrlParameter('zoom'));
         } else {
             zoom = 15;
             var centerLat = 59.91027956419326;
