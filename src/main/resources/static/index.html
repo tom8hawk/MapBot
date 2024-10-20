@@ -94,8 +94,9 @@
 
         jQuery.getJSON('/features', { initData: Telegram.WebApp.initData }, function (json) {
             json.features.forEach(function (feature) {
+                var coordinates = feature.geometry.coordinates;
+
                 if (feature.geometry.type === 'Point') {
-                    var coordinates = feature.geometry.coordinates;
                     feature.geometry.coordinates = [coordinates[1], coordinates[0]];
 
                     feature.options = {
@@ -105,7 +106,7 @@
                     pointsManager.add(feature);
                 } else if (feature.geometry.type === 'Polygon') {
                     feature.geometry.coordinates = coordinates.map(function (polygon) {
-                        return polygon.map(function (coordinates) {
+                        return polygon.map(function (coords) {
                             return [coordinates[1], coordinates[0]];
                         });
                     });
