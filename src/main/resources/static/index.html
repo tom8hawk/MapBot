@@ -107,7 +107,7 @@
                 } else if (feature.geometry.type === 'Polygon') {
                     feature.geometry.coordinates = coordinates.map(function (polygon) {
                         return polygon.map(function (coords) {
-                            return [coordinates[1], coordinates[0]];
+                            return [coords[1], coords[0]];
                         });
                     });
 
