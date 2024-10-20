@@ -78,7 +78,7 @@
     }
 
     ymaps.ready(function () {
-        var cluster = Telegram.WebApp.initDataUnsafe.start_param != 'no_cluster';
+        var cluster = Telegram.WebApp.initDataUnsafe.start_param !== 'no_cluster';
 
         var pointsManager = new ymaps.ObjectManager({
             clusterize: cluster,
@@ -94,18 +94,19 @@
 
         jQuery.getJSON('/features', { initData: Telegram.WebApp.initData }, function (json) {
             json.features.forEach(function (feature) {
-                var coordinates = feature.geometry.coordinates;
-
                 if (feature.geometry.type === 'Point') {
+                    var coordinates = feature.geometry.coordinates;
                     feature.geometry.coordinates = [coordinates[1], coordinates[0]];
+
                     feature.options = {
                         iconColor: feature.properties['marker-color']
                     };
+
                     pointsManager.add(feature);
                 } else if (feature.geometry.type === 'Polygon') {
                     feature.geometry.coordinates = coordinates.map(function (polygon) {
-                        return polygon.map(function (coordPair) {
-                            return [coordPair[1], coordPair[0]];
+                        return polygon.map(function (coordinates) {
+                            return [coordinates[1], coordinates[0]];
                         });
                     });
 
@@ -118,9 +119,6 @@
                     });
 
                     polygon.events.add('click', function (e) {
-                        var updateButton = document.getElementById('updateButton');
-                        updateButton.style.display = 'none';
-
                         var properties = feature.properties.description;
                         if (properties) {
                             var coords = e.get('coords');
@@ -128,6 +126,9 @@
                                 closeButton: true
                             });
                         }
+
+                        var updateButton = document.getElementById('updateButton');
+                        updateButton.style.display = 'none';
                     });
 
                     myMap.geoObjects.add(polygon);
