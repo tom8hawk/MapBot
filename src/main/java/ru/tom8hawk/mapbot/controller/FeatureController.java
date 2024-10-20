@@ -30,11 +30,7 @@ public class FeatureController {
     }
 
     @GetMapping("/features")
-    public ResponseEntity<String> getFeatures(@RequestParam String initData) {
-        if (!initDataValidator.checkData(initData)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
+    public ResponseEntity<String> getFeatures() {
         return ResponseEntity.ok(featuresMapService.getFeaturesMapString());
     }
 
