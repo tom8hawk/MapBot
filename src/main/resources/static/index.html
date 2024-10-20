@@ -78,7 +78,7 @@
     }
 
     ymaps.ready(function () {
-        var cluster = Telegram.WebApp.initDataUnsafe.start_param !== 'no_cluster';
+        var cluster = !location.search.includes('no_cluster');
 
         var pointsManager = new ymaps.ObjectManager({
             clusterize: cluster,

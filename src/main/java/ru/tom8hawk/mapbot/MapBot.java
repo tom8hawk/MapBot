@@ -97,18 +97,6 @@ public class MapBot extends TelegramLongPollingBot {
                             ));
 
                             execute(adminMessage);
-                        } else if (messageText.equals("/showall")) {
-                            String link = "https://t.me/" + botUsername + "?startapp=no_cluster";
-
-                            SendMessage linkMessage = new SendMessage();
-                            linkMessage.setChatId(chatId);
-                            linkMessage.setText("Просмотр карты без кластеризации точек:");
-
-                            linkMessage.setReplyMarkup(createKeyboard(
-                                    InlineKeyboardButton.builder().text("Карта").url(link).build()
-                            ));
-
-                            execute(linkMessage);
                         }
                     } else if (message.hasLocation()) {
                         String username = message.getFrom().getUserName();
