@@ -9,7 +9,7 @@ public final class MapConstants {
     public static final List<String> ADMINISTRATORS;
 
     static {
-        MARKER_COLOR = "#9c6c";
+        MARKER_COLOR = "#bf15bf";
         ADMINISTRATORS = List.of("1234567890");
     }
 
