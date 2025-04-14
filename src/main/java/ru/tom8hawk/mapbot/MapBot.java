@@ -2,6 +2,7 @@ package ru.tom8hawk.mapbot;
 
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -36,36 +37,24 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class MapBot extends TelegramLongPollingBot {
 
     @Getter
-    private final String botUsername;
+    @Value("${telegram.bot.username}")
+    private String botUsername;
 
     @Getter
-    private final String botToken;
+    @Value("${telegram.bot.token}")
+    private String botToken;
 
     private final UserService userService;
+
     private final FeatureService featureService;
+
     private final FeaturesMapService featuresMapService;
+
     private final TempFeatureService tempFeatureService;
-
-    @Autowired
-    public MapBot(
-            @Value("${telegram.bot.username}") String botUsername,
-            @Value("${telegram.bot.token}") String botToken,
-            UserService userService,
-            FeatureService featureService,
-            FeaturesMapService featuresMapService,
-            TempFeatureService tempFeatureService
-    ) {
-
-        this.botUsername = botUsername;
-        this.botToken = botToken;
-        this.userService = userService;
-        this.featureService = featureService;
-        this.featuresMapService = featuresMapService;
-        this.tempFeatureService = tempFeatureService;
-    }
 
     @PostConstruct
     public void init() throws TelegramApiException {
