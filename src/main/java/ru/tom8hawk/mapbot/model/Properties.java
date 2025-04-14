@@ -7,6 +7,7 @@ import java.util.Map;
 
 @Embeddable
 public class Properties {
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "properties", joinColumns = @JoinColumn(name = "feature_id"))
     @MapKeyColumn(name = "field")

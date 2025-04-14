@@ -237,7 +237,12 @@
             updateButton.style.display = 'none';
         });
 
-        var listBoxItems = ['Новые', 'Устаревшие']
+        var categoryConfig = {
+            'Листовки': 'Листовка',
+            'Стикеры': 'Стикер'
+        };
+
+        var listBoxItems = Object.keys(categoryConfig)
             .map(function (title) {
                 return new ymaps.control.ListBoxItem({
                     data: {
@@ -283,12 +288,21 @@
             pointsManager.setFilter(getFilterFunction(filters));
         });
 
-        var newPointColor = '#9c6c';
         function getFilterFunction(categories) {
             return function (obj) {
-                var markerColor = obj.properties['marker-color'];
-                return (categories['Новые'] && markerColor === newPointColor) ||
-                       (categories['Устаревшие'] && markerColor !== newPointColor);
+                var description = obj.properties.description;
+
+                if (description) {
+                    if (Object.values(categories).every(function(val) { return !val; })) {
+                        return false;
+                    }
+
+                    return Object.keys(categoryConfig).some(function(category) {
+                        return categories[category] && description.includes(categoryConfig[category]);
+                    });
+                }
+
+                return true;
             }
         }
 

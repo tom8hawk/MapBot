@@ -2,7 +2,6 @@ package ru.tom8hawk.mapbot.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ru.tom8hawk.mapbot.MapConstants;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.repository.FeatureRepository;
 
@@ -34,8 +33,6 @@ public class FeatureService {
     public Optional<Feature> update(long featureId) {
         return featureRepository.findById(featureId).map(feature -> {
             feature.setModifiedAt(new Date());
-            feature.getProperties().setMarkerColor(MapConstants.MARKER_COLOR);
-
             return featureRepository.save(feature);
         });
     }

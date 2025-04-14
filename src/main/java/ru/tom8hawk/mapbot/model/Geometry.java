@@ -8,6 +8,9 @@ import lombok.Setter;
 @Setter
 @Embeddable
 public class Geometry {
-    private String type;
+
+    private String geometryType;
+
     private double[] coordinates;
+
 }

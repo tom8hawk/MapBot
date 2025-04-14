@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -19,18 +20,20 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
-import ru.tom8hawk.mapbot.model.Feature;
-import ru.tom8hawk.mapbot.model.Geometry;
-import ru.tom8hawk.mapbot.model.Properties;
-import ru.tom8hawk.mapbot.model.User;
-import ru.tom8hawk.mapbot.service.FeaturesMapService;
+import ru.tom8hawk.mapbot.constants.FeatureType;
+import ru.tom8hawk.mapbot.constants.GeometryType;
+import ru.tom8hawk.mapbot.constants.MapConstants;
+import ru.tom8hawk.mapbot.model.*;
 import ru.tom8hawk.mapbot.service.FeatureService;
+import ru.tom8hawk.mapbot.service.FeaturesMapService;
+import ru.tom8hawk.mapbot.service.TempFeatureService;
 import ru.tom8hawk.mapbot.service.UserService;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class MapBot extends TelegramLongPollingBot {
@@ -44,6 +47,7 @@ public class MapBot extends TelegramLongPollingBot {
     private final UserService userService;
     private final FeatureService featureService;
     private final FeaturesMapService featuresMapService;
+    private final TempFeatureService tempFeatureService;
 
     @Autowired
     public MapBot(
@@ -51,7 +55,8 @@ public class MapBot extends TelegramLongPollingBot {
             @Value("${telegram.bot.token}") String botToken,
             UserService userService,
             FeatureService featureService,
-            FeaturesMapService featuresMapService
+            FeaturesMapService featuresMapService,
+            TempFeatureService tempFeatureService
     ) {
 
         this.botUsername = botUsername;
@@ -59,6 +64,7 @@ public class MapBot extends TelegramLongPollingBot {
         this.userService = userService;
         this.featureService = featureService;
         this.featuresMapService = featuresMapService;
+        this.tempFeatureService = tempFeatureService;
     }
 
     @PostConstruct
@@ -71,6 +77,7 @@ public class MapBot extends TelegramLongPollingBot {
         try {
             if (update.hasMessage()) {
                 Message message = update.getMessage();
+                User user = getOrCreateUser(message);
 
                 if (message.getChat().isUserChat()) {
                     String chatId = message.getChatId().toString();
@@ -97,51 +104,84 @@ public class MapBot extends TelegramLongPollingBot {
                             ));
 
                             execute(adminMessage);
+                        } else if (messageText.equals("/showall")) {
+                            String link = "https://t.me/" + botUsername + "?startapp=no_cluster";
+
+                            SendMessage linkMessage = new SendMessage();
+                            linkMessage.setChatId(chatId);
+                            linkMessage.setText("Просмотр карты без кластеризации точек:");
+
+                            linkMessage.setReplyMarkup(createKeyboard(
+                                    InlineKeyboardButton.builder().text("Карта").url(link).build()
+                            ));
+
+                            execute(linkMessage);
+                        } else if (messageText.startsWith("/setdefault")) {
+                            String[] parts = messageText.split("\\s+", 2);
+
+                            if (parts.length == 2) {
+                                try {
+                                    FeatureType defaultType = FeatureType.valueOf(parts[1].toUpperCase());
+                                    user.setDefaultFeatureType(defaultType);
+                                    userService.save(user);
+
+                                    execute(createSendMessage(chatId, "Тип точки по умолчанию установлен: "
+                                            + defaultType.getRussianName() + " " + defaultType.getEmoji()));
+
+                                    return;
+                                } catch (IllegalArgumentException ignored) {
+                                }
+                            }
+
+                            execute(createSendMessage(chatId, "Ошибка: неверный тип точки. Доступные типы: " +
+                                    Arrays.stream(FeatureType.values())
+                                            .map(type ->
+                                                    String.format("`%s` (%s)", type.name(), type.getRussianName()))
+                                            .collect(Collectors.joining(", "))));
+                        } else if (messageText.startsWith("/resetdefault")) {
+                            user.setDefaultFeatureType(null);
+                            userService.save(user);
+                            execute(createSendMessage(chatId, "Тип точки по умолчанию сброшен."));
                         }
                     } else if (message.hasLocation()) {
-                        String username = message.getFrom().getUserName();
-                        User user = userService.findByTelegramId(userTelegramId).orElse(null);
-
-                        if (user == null) {
-                            user = new User();
-                            user.setTelegramId(userTelegramId);
-                            user.setUsername(username);
-                            userService.save(user);
-                        } else if (username != null && !username.equals(user.getUsername())) {
-                            user.setUsername(username);
-                            userService.save(user);
-                        }
-
                         double longitude = message.getLocation().getLongitude();
                         double latitude = message.getLocation().getLatitude();
 
-                        Feature feature = new Feature();
-                        feature.setCreator(user);
+                        TempFeature tempFeature = new TempFeature();
+                        tempFeature.setCreator(user);
 
                         Geometry geometry = new Geometry();
-                        geometry.setType("Point");
+                        geometry.setGeometryType(GeometryType.POINT);
                         geometry.setCoordinates(new double[]{ longitude, latitude });
-                        feature.setGeometry(geometry);
+                        tempFeature.setGeometry(geometry);
 
-                        Properties properties = new Properties();
-                        properties.setMarkerColor(MapConstants.MARKER_COLOR);
-                        feature.setProperties(properties);
+                        tempFeatureService.save(tempFeature);
 
-                        featureService.save(feature);
-                        featuresMapService.display(feature);
+                        if (user.getDefaultFeatureType() != null) {
+                            FeatureType featureType = user.getDefaultFeatureType();
+                            createFeatureFromTemp(tempFeature, featureType);
 
-                        SendMessage sendMessage = new SendMessage();
-                        sendMessage.setChatId(chatId);
-                        sendMessage.setText("Точка сохранена!");
+                            SendMessage sendMessage = new SendMessage();
+                            sendMessage.setChatId(chatId);
+                            sendMessage.setText("Точка сохранена как " + featureType.getRussianName() + " " + featureType.getEmoji());
+                            sendMessage.setReplyMarkup(createDeleteMarkup(tempFeature.getId()));
 
-                        sendMessage.setReplyMarkup(createKeyboard(
-                                InlineKeyboardButton.builder()
-                                        .text("\uD83D\uDDD1 Удалить️")
-                                        .callbackData("delete_" + feature.getId())
-                                        .build()
-                        ));
+                            execute(sendMessage);
+                        } else {
+                            SendMessage sendMessage = new SendMessage();
+                            sendMessage.setChatId(chatId);
+                            sendMessage.setText("Выбери тип точки:");
 
-                        execute(sendMessage);
+                            InlineKeyboardButton[] buttons = Arrays.stream(FeatureType.values())
+                                    .map(button -> InlineKeyboardButton.builder()
+                                            .text(button.getRussianName() + " " + button.getEmoji())
+                                            .callbackData(String.format("set_type_%s_%s", tempFeature.getId(), button))
+                                            .build())
+                                    .toArray(InlineKeyboardButton[]::new);
+
+                            sendMessage.setReplyMarkup(createKeyboard(buttons));
+                            execute(sendMessage);
+                        }
                     } else if (message.hasDocument() && isAdmin(userTelegramId)) {
                         String fileId = message.getDocument().getFileId();
                         String fileName = message.getDocument().getFileName();
@@ -169,7 +209,32 @@ public class MapBot extends TelegramLongPollingBot {
                 Integer messageId = callback.getMessage().getMessageId();
                 String chatId = callback.getMessage().getChatId().toString();
 
-                if (callbackData.contains("delete")) {
+                if (callbackData.startsWith("set_type_")) {
+                    String[] parts = callbackData.split("_");
+                    Long tempFeatureId = Long.parseLong(parts[2]);
+                    FeatureType featureType;
+
+                    try {
+                        featureType = FeatureType.valueOf(parts[3]);
+                    } catch (IllegalArgumentException ignored) {
+                        return;
+                    }
+
+                    TempFeature tempFeature = tempFeatureService.findById(tempFeatureId).orElse(null);
+                    if (tempFeature != null) {
+                        createFeatureFromTemp(tempFeature, featureType);
+
+                        EditMessageText editMessage = new EditMessageText();
+                        editMessage.setChatId(chatId);
+                        editMessage.setMessageId(messageId);
+                        editMessage.setText("Точка сохранена как " + featureType.getRussianName() + "!");
+                        editMessage.setReplyMarkup(createDeleteMarkup(tempFeatureId));
+
+                        execute(editMessage);
+                    } else {
+                        execute(createEditMessageText(chatId, messageId, "Ошибка: такой точки не существует!"));
+                    }
+                } else if (callbackData.contains("delete")) {
                     try {
                         Long featureId = Long.parseLong(callbackData.split("_")[1]);
                         Feature feature = featureService.findById(featureId).orElse(null);
@@ -180,7 +245,7 @@ public class MapBot extends TelegramLongPollingBot {
                             if (creator != null && callback.getFrom().getId().equals(creator.getTelegramId())) {
                                 featureService.delete(feature);
                                 featuresMapService.remove(feature);
-                                execute(createEditMessageText(chatId, messageId, "\uD83D\uDDD1️"));
+                                execute(createEditMessageText(chatId, messageId, "\uD83D\uDDD1"));
 
                                 return;
                             }
@@ -189,7 +254,6 @@ public class MapBot extends TelegramLongPollingBot {
                     }
 
                     execute(createEditMessageText(chatId, messageId, "Ошибка: такой точки не существует!"));
-
                 } else if (isAdmin(userTelegramId)) {
                     if (callbackData.equals("import")) {
                         SendMessage sendMessage = createSendMessage(chatId,
@@ -219,14 +283,35 @@ public class MapBot extends TelegramLongPollingBot {
         }
     }
 
+    private User getOrCreateUser(Message message) {
+        String username = message.getFrom().getUserName();
+        Long userTelegramId = message.getFrom().getId();
+        User user = userService.findByTelegramId(userTelegramId).orElse(null);
+
+        if (user == null) {
+            user = new User();
+            user.setTelegramId(userTelegramId);
+            user.setUsername(username);
+            userService.save(user);
+        } else if (username != null && !username.equals(user.getUsername())) {
+            user.setUsername(username);
+            userService.save(user);
+        }
+
+        return user;
+    }
+
     private boolean isAdmin(Long userTelegramId) {
         return MapConstants.ADMINISTRATORS.contains(userTelegramId.toString());
     }
 
     private SendMessage createSendMessage(String chatId, String text) {
         SendMessage sendMessage = new SendMessage();
+
         sendMessage.setChatId(chatId);
         sendMessage.setText(text);
+        sendMessage.setParseMode(ParseMode.MARKDOWN);
+
         return sendMessage;
     }
 
@@ -244,4 +329,31 @@ public class MapBot extends TelegramLongPollingBot {
         editMessage.setReplyMarkup(null);
         return editMessage;
     }
+
+    private void createFeatureFromTemp(TempFeature tempFeature, FeatureType featureType) {
+        Feature feature = new Feature();
+
+        feature.setCreator(tempFeature.getCreator());
+        feature.setGeometry(tempFeature.getGeometry());
+        feature.setFeatureType(featureType);
+
+        Properties properties = new Properties();
+        properties.setMarkerColor(featureType.getColor());
+        feature.setProperties(properties);
+
+        tempFeatureService.delete(tempFeature);
+
+        featureService.save(feature);
+        featuresMapService.display(feature);
+    }
+
+    private InlineKeyboardMarkup createDeleteMarkup(Long featureId) {
+        return createKeyboard(
+                InlineKeyboardButton.builder()
+                        .text("\uD83D\uDDD1 Удалить️")
+                        .callbackData("delete_" + featureId)
+                        .build()
+        );
+    }
+
 }
