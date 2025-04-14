@@ -6,11 +6,14 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.tom8hawk.mapbot.constants.FeatureType;
-import ru.tom8hawk.mapbot.model.*;
+import ru.tom8hawk.mapbot.model.Feature;
+import ru.tom8hawk.mapbot.model.Geometry;
 import ru.tom8hawk.mapbot.model.Properties;
+import ru.tom8hawk.mapbot.model.User;
 import ru.tom8hawk.mapbot.repository.FeatureRepository;
 
 import java.io.ByteArrayInputStream;
@@ -22,6 +25,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class FeaturesMapService {
 
     private static final SimpleDateFormat DATE_FORMAT =
@@ -35,11 +39,6 @@ public class FeaturesMapService {
 
     @Getter
     private String featuresMapString;
-
-    @Autowired
-    public FeaturesMapService(FeatureRepository featureRepository) {
-        this.featureRepository = featureRepository;
-    }
 
     @PostConstruct
     private void init() {
