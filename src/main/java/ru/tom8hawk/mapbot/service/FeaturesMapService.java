@@ -8,10 +8,9 @@ import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import ru.tom8hawk.mapbot.model.Feature;
-import ru.tom8hawk.mapbot.model.Geometry;
+import ru.tom8hawk.mapbot.constants.FeatureType;
+import ru.tom8hawk.mapbot.model.*;
 import ru.tom8hawk.mapbot.model.Properties;
-import ru.tom8hawk.mapbot.model.User;
 import ru.tom8hawk.mapbot.repository.FeatureRepository;
 
 import java.io.ByteArrayInputStream;
@@ -63,7 +62,7 @@ public class FeaturesMapService {
         remove(feature, true);
     }
 
-    private void remove(Feature feature, boolean updateMap) {
+    private boolean remove(Feature feature, boolean updateMap) {
         long featureId = feature.getId();
 
         for (int i = FEATURES_ARRAY.size() - 1; i >= 0; i--) {
@@ -71,18 +70,22 @@ public class FeaturesMapService {
 
             if (featureNode.get("id").asLong() == featureId) {
                 FEATURES_ARRAY.remove(i);
-                break;
+
+                if (updateMap) {
+                    featuresMapString = FEATURES_MAP.toString();
+                }
+
+                return true;
             }
         }
 
-        if (updateMap) {
-            featuresMapString = FEATURES_MAP.toString();
-        }
+        return false;
     }
 
     public void update(Feature feature) {
-        remove(feature, false);
-        display(feature);
+        if (remove(feature, false)) {
+            display(feature);
+        }
     }
 
     public void importFeatures(File file) throws IOException {
@@ -112,7 +115,7 @@ public class FeaturesMapService {
 
         if (geometryNode != null) {
             Geometry geometry = new Geometry();
-            geometry.setType(geometryNode.get("type").asText());
+            geometry.setGeometryType(geometryNode.get("type").asText());
 
             if (geometryNode.get("coordinates").isArray()) {
                 JsonNode coordinatesArray = geometryNode.get("coordinates");
@@ -161,7 +164,7 @@ public class FeaturesMapService {
 
         ObjectNode geometryNode = OBJECT_MAPPER.createObjectNode();
         Geometry geometry = feature.getGeometry();
-        geometryNode.put("type", geometry.getType());
+        geometryNode.put("type", geometry.getGeometryType());
 
         double[] coordinates = geometry.getCoordinates();
         ArrayNode coordinatesArray = OBJECT_MAPPER.createArrayNode();
@@ -203,6 +206,12 @@ public class FeaturesMapService {
         }
 
         if (description != null) {
+            FeatureType featureType = feature.getFeatureType();
+
+            if (featureType != null) {
+                description += "<br>[" + featureType.getRussianName() + "]";
+            }
+
             Date modifiedAt = feature.getModifiedAt();
 
             if (modifiedAt != null) {
