@@ -30,7 +30,7 @@
         }
         #updateButton {
             position: absolute;
-            bottom: 10px;
+            bottom: 15%;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
@@ -67,7 +67,7 @@
 <body>
 <div id='YMaps'></div>
 <button id='locateButton'>📍</button>
-<button id="updateButton">Обновить точку</button>
+<button id="updateButton">Быстро сорвали</button>
 
 <script>
     function getUrlParameter(name) {
@@ -78,7 +78,7 @@
     }
 
     ymaps.ready(function () {
-        var cluster = Telegram.WebApp.initDataUnsafe.start_param !== 'no_cluster';
+        var cluster = !location.search.includes('no_cluster');
 
         var pointsManager = new ymaps.ObjectManager({
             clusterize: cluster,
