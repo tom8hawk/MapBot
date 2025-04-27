@@ -3,6 +3,7 @@ package ru.tom8hawk.mapbot;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
+@Log4j2
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class MapBot extends TelegramLongPollingBot {
 
@@ -109,16 +111,14 @@ public class MapBot extends TelegramLongPollingBot {
                             String[] parts = messageText.split("\\s+", 2);
 
                             if (parts.length == 2) {
-                                try {
-                                    FeatureType defaultType = FeatureType.valueOf(parts[1].toUpperCase());
+                                FeatureType defaultType = FeatureType.fromString(parts[1].toUpperCase());
+
+                                if (defaultType != null) {
                                     user.setDefaultFeatureType(defaultType);
                                     userService.save(user);
 
                                     execute(createSendMessage(chatId, "Тип точки по умолчанию установлен: "
                                             + defaultType.getRussianName() + " " + defaultType.getEmoji()));
-
-                                    return;
-                                } catch (IllegalArgumentException ignored) {
                                 }
                             }
 
@@ -148,12 +148,12 @@ public class MapBot extends TelegramLongPollingBot {
 
                         if (user.getDefaultFeatureType() != null) {
                             FeatureType featureType = user.getDefaultFeatureType();
-                            createFeatureFromTemp(tempFeature, featureType);
+                            Feature feature = createAndSaveFeature(tempFeature, featureType);
 
                             SendMessage sendMessage = new SendMessage();
                             sendMessage.setChatId(chatId);
                             sendMessage.setText("Точка сохранена как " + featureType.getRussianName() + " " + featureType.getEmoji());
-                            sendMessage.setReplyMarkup(createDeleteMarkup(tempFeature.getId()));
+                            sendMessage.setReplyMarkup(createDeleteMarkup(feature.getId()));
 
                             execute(sendMessage);
                         } else {
@@ -183,7 +183,7 @@ public class MapBot extends TelegramLongPollingBot {
 
                                 execute(createSendMessage(chatId, "Файл успешно обработан!"));
                             } catch (IOException e) {
-                                e.printStackTrace();
+                                log.error(e);
                                 execute(createSendMessage(chatId,
                                         "Ошибка при обработке файла! Изменения не были внесены."));
                             }
@@ -201,45 +201,47 @@ public class MapBot extends TelegramLongPollingBot {
                 if (callbackData.startsWith("set_type_")) {
                     String[] parts = callbackData.split("_");
                     Long tempFeatureId = Long.parseLong(parts[2]);
-                    FeatureType featureType;
+                    FeatureType featureType = FeatureType.fromString(parts[3]);
 
-                    try {
-                        featureType = FeatureType.valueOf(parts[3]);
-                    } catch (IllegalArgumentException ignored) {
+                    if (featureType == null) {
                         return;
                     }
 
                     TempFeature tempFeature = tempFeatureService.findById(tempFeatureId).orElse(null);
                     if (tempFeature != null) {
-                        createFeatureFromTemp(tempFeature, featureType);
+                        Feature feature = createAndSaveFeature(tempFeature, featureType);
 
                         EditMessageText editMessage = new EditMessageText();
                         editMessage.setChatId(chatId);
                         editMessage.setMessageId(messageId);
                         editMessage.setText("Точка сохранена как " + featureType.getRussianName() + "!");
-                        editMessage.setReplyMarkup(createDeleteMarkup(tempFeatureId));
+                        editMessage.setReplyMarkup(createDeleteMarkup(feature.getId()));
 
                         execute(editMessage);
                     } else {
                         execute(createEditMessageText(chatId, messageId, "Ошибка: такой точки не существует!"));
                     }
                 } else if (callbackData.contains("delete")) {
+                    Long featureId;
+
                     try {
-                        Long featureId = Long.parseLong(callbackData.split("_")[1]);
-                        Feature feature = featureService.findById(featureId).orElse(null);
-
-                        if (feature != null) {
-                            User creator = feature.getCreator();
-
-                            if (creator != null && callback.getFrom().getId().equals(creator.getTelegramId())) {
-                                featureService.delete(feature);
-                                featuresMapService.remove(feature);
-                                execute(createEditMessageText(chatId, messageId, "\uD83D\uDDD1"));
-
-                                return;
-                            }
-                        }
+                        featureId = Long.parseLong(callbackData.split("_")[1]);
                     } catch (NumberFormatException ignored) {
+                        return;
+                    }
+
+                    Feature feature = featureService.findById(featureId).orElse(null);
+
+                    if (feature != null) {
+                        User creator = feature.getCreator();
+
+                        if (creator != null && callback.getFrom().getId().equals(creator.getTelegramId())) {
+                            featureService.delete(feature);
+                            featuresMapService.remove(feature);
+                            execute(createEditMessageText(chatId, messageId, "\uD83D\uDDD1"));
+
+                            return;
+                        }
                     }
 
                     execute(createEditMessageText(chatId, messageId, "Ошибка: такой точки не существует!"));
@@ -268,7 +270,7 @@ public class MapBot extends TelegramLongPollingBot {
                 }
             }
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            log.error(e);
         }
     }
 
@@ -319,7 +321,9 @@ public class MapBot extends TelegramLongPollingBot {
         return editMessage;
     }
 
-    private void createFeatureFromTemp(TempFeature tempFeature, FeatureType featureType) {
+    private Feature createAndSaveFeature(TempFeature tempFeature, FeatureType featureType) {
+        tempFeatureService.delete(tempFeature);
+
         Feature feature = new Feature();
 
         feature.setCreator(tempFeature.getCreator());
@@ -330,10 +334,10 @@ public class MapBot extends TelegramLongPollingBot {
         properties.setMarkerColor(featureType.getColor());
         feature.setProperties(properties);
 
-        tempFeatureService.delete(tempFeature);
-
         featureService.save(feature);
         featuresMapService.display(feature);
+
+        return feature;
     }
 
     private InlineKeyboardMarkup createDeleteMarkup(Long featureId) {
