@@ -15,4 +15,12 @@ public enum FeatureType {
 
     private final String color;
 
+    public static FeatureType fromString(String name) {
+        try {
+            return FeatureType.valueOf(name);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
 }
