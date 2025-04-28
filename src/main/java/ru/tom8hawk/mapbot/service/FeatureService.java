@@ -3,6 +3,7 @@ package ru.tom8hawk.mapbot.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import ru.tom8hawk.mapbot.constants.FeatureStatus;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.repository.FeatureRepository;
 
@@ -27,10 +28,12 @@ public class FeatureService {
         featureRepository.delete(feature);
     }
 
-    public Optional<Feature> update(long featureId) {
+    public Optional<Feature> updateStatus(long featureId, FeatureStatus status) {
         return featureRepository.findById(featureId).map(feature -> {
             feature.setModifiedAt(new Date());
+            feature.setStatus(status);
             return featureRepository.save(feature);
         });
     }
+
 }

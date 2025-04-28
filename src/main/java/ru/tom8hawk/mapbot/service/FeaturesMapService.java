@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import ru.tom8hawk.mapbot.constants.FeatureStatus;
 import ru.tom8hawk.mapbot.constants.FeatureType;
 import ru.tom8hawk.mapbot.model.Feature;
 import ru.tom8hawk.mapbot.model.Geometry;
@@ -211,10 +212,12 @@ public class FeaturesMapService {
                 description += "<br>[" + featureType.getRussianName() + "]";
             }
 
-            Date modifiedAt = feature.getModifiedAt();
+            FeatureStatus featureStatus = feature.getStatus();
 
-            if (modifiedAt != null) {
-                description += "<br>[обновлено " + DATE_FORMAT.format(modifiedAt) + "]";
+            if (featureStatus != null) {
+                Date modifiedAt = feature.getModifiedAt();
+                description += String.format("<br>[%s %s]",
+                        featureStatus.getRussianName(), DATE_FORMAT.format(modifiedAt));
             }
 
             properties.setDescription(description);
@@ -226,4 +229,5 @@ public class FeaturesMapService {
 
         return featureNode;
     }
+
 }
