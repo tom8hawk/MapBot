@@ -4,15 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import ru.tom8hawk.mapbot.component.InitDataValidator;
+import ru.tom8hawk.mapbot.constants.FeatureStatus;
 import ru.tom8hawk.mapbot.service.FeatureService;
 import ru.tom8hawk.mapbot.service.FeaturesMapService;
 
 @RestController
+@RequestMapping("/api/v1/features")
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class FeatureController {
 
@@ -20,7 +19,7 @@ public class FeatureController {
     private final FeaturesMapService featuresMapService;
     private final InitDataValidator initDataValidator;
 
-    @GetMapping("/features")
+    @GetMapping
     public ResponseEntity<String> getFeatures(@RequestParam String initData) {
         if (!initDataValidator.checkData(initData)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -29,15 +28,21 @@ public class FeatureController {
         return ResponseEntity.ok(featuresMapService.getFeaturesMapString());
     }
 
-    @PostMapping("/update")
-    public ResponseEntity<Void> updateFeature(@RequestParam String initData, @RequestParam long pointId) {
+    @PostMapping("/ripped")
+    public ResponseEntity<Void> rippedFeature(@RequestParam String initData, @RequestParam long pointId) {
+        return updateFeatureStatus(initData, pointId, FeatureStatus.RIPPED);
+    }
+
+    private ResponseEntity<Void> updateFeatureStatus(String initData,
+                                                      long pointId,
+                                                      FeatureStatus featureStatus) {
+
         if (!initDataValidator.checkData(initData)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        featureService.update(pointId)
-                .ifPresent(featuresMapService::update);
-
+        featureService.updateStatus(pointId, featureStatus).ifPresent(featuresMapService::update);
         return ResponseEntity.ok().build();
     }
+
 }

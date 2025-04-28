@@ -92,7 +92,7 @@
             preset: 'islands#blackClusterIcons'
         });
 
-        jQuery.getJSON('/features', { initData: Telegram.WebApp.initData }, function (json) {
+        jQuery.getJSON('/api/v1/features', { initData: Telegram.WebApp.initData }, function (json) {
             json.features.forEach(function (feature) {
                 var coordinates = feature.geometry.coordinates;
 
@@ -152,7 +152,7 @@
                     updateButton.style.display = 'block';
                     updateButton.onclick = function() {
                         var initData = Telegram.WebApp.initData;
-                        $.post('/update', { initData: initData, pointId: objectId }, function(response) {
+                        $.post('/api/v1/features/ripped', { initData: initData, pointId: objectId }, function(response) {
                             var center = myMap.getCenter();
                             var centerLat = center[0];
                             var centerLon = center[1];
@@ -183,7 +183,7 @@
             centerLon = parseFloat(getUrlParameter('centerLon'));
         } else {
             zoom = 15;
-            var centerLat = 59.91027956419326;
+            centerLat = 59.91027956419326;
             centerLon = 30.307836999999967;
 
             locateUser();
@@ -240,12 +240,13 @@
             updateButton.style.display = 'none';
         });
 
-        var categoryConfig = {
+        var categoriesConfig = {
             'Листовки': 'Листовка',
-            'Стикеры': 'Стикер'
+            'Стикеры': 'Стикер',
+            'Сорвали': 'Быстро сорвали'
         };
 
-        var listBoxItems = Object.keys(categoryConfig)
+        var listBoxItems = Object.keys(categoriesConfig)
             .map(function (title) {
                 return new ymaps.control.ListBoxItem({
                     data: {
@@ -292,20 +293,25 @@
         });
 
         function getFilterFunction(categories) {
+            const areAllCategoriesDisabled = Object.values(categories).every(val => !val);
+
             return function (obj) {
                 var description = obj.properties.description;
 
-                if (description) {
-                    if (Object.values(categories).every(function(val) { return !val; })) {
-                        return false;
-                    }
-
-                    return Object.keys(categoryConfig).some(function(category) {
-                        return categories[category] && description.includes(categoryConfig[category]);
-                    });
+                if (!description) {
+                    return false;
                 }
 
-                return true;
+                if (areAllCategoriesDisabled) {
+                    return false;
+                }
+
+                for (const [category, isEnabled] of Object.entries(categories)) {
+                    if (isEnabled && description.includes(categoriesConfig[category])) {
+                        return true;
+                    }
+                }
+                return false;
             }
         }
 
